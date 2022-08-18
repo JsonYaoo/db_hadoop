@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 /**
- * 单词计数：统计每个单词出现的总次数
+ * 单词计数(无Reduce版)：只显示单词, 不统计
  * <p>
  * hello you
  * hello me
@@ -27,9 +27,9 @@ import java.io.IOException;
  * you  1
  *
  * @author yaocs2
- * @since 2022-08-16
+ * @since 2022-08-18
  */
-public class WordCountJob {
+public class WordCountNoReduceJob {
 
     /**
      * 组装Job = Map + Reduce
@@ -47,7 +47,7 @@ public class WordCountJob {
         try {
             Configuration conf = new Configuration();
             Job job = Job.getInstance(conf);
-            job.setJarByClass(WordCountJob.class);// 必须设置, 否则提交到集群后, Job会找不到这个WordCountJob类的
+            job.setJarByClass(WordCountNoReduceJob.class);// 必须设置, 否则提交到集群后, Job会找不到这个WordCountJob类的
 
             // 输入、输出
             FileInputFormat.setInputPaths(job, new Path(fileInputPath));
@@ -58,10 +58,8 @@ public class WordCountJob {
             job.setMapOutputKeyClass(Text.class);
             job.setMapOutputValueClass(LongWritable.class);
 
-            // Reduce
-            job.setReducerClass(MyReducer.class);
-            job.setOutputKeyClass(Text.class);
-            job.setOutputValueClass(LongWritable.class);
+            // 禁用Reduce
+            job.setNumReduceTasks(0);
 
             // 提交Job
             job.waitForCompletion(true);
@@ -102,42 +100,6 @@ public class WordCountJob {
                 LongWritable v2 = new LongWritable(1L);
                 context.write(k2, v2);
             }
-        }
-    }
-
-    /**
-     * Reduce阶段
-     *
-     * @author yaocs2
-     * @since 2022-08-16
-     */
-    public static class MyReducer extends Reducer<Text, LongWritable, Text, LongWritable> {
-
-        Logger logger = LoggerFactory.getLogger(MyReducer.class);
-
-        /**
-         * Reduce函数：<k2, {v2,..}> => <k3, v3>
-         *
-         * @param k2      单词的值
-         * @param v2s     单词出现的所有次数
-         * @param context
-         * @throws IOException
-         * @throws InterruptedException
-         */
-        @Override
-        protected void reduce(Text k2, Iterable<LongWritable> v2s, Context context) throws IOException, InterruptedException {
-            // 累加所有次数
-            long sum = 0L;
-            for (LongWritable v2 : v2s) {
-                logger.info(String.format("<k1, v1> = <%s, %s>", k2.toString(), v2));
-                sum += v2.get();
-            }
-
-            // <k2, {v2,..}> => <k3, v3>
-            Text k3 = k2;
-            LongWritable v3 = new LongWritable(sum);
-            logger.info(String.format("<k1, v1> = <%s, %s>", k3.toString(), v3));
-            context.write(k3, v3);
         }
     }
 }
