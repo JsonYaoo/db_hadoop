@@ -8,6 +8,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 /**
- * 单词计数：统计每个单词出现的总次数
+ * 单词计数：统计每个单词出现的总次数 => 测试小文件合并优化
  * <p>
  * hello you
  * hello me
@@ -29,7 +30,7 @@ import java.io.IOException;
  * @author yaocs2
  * @since 2022-08-16
  */
-public class WordCountJob {
+public class WordCountJobSmallFile {
 
     /**
      * 组装Job = Map + Reduce
@@ -47,11 +48,14 @@ public class WordCountJob {
         try {
             Configuration conf = new Configuration();
             Job job = Job.getInstance(conf);
-            job.setJarByClass(WordCountJob.class);// 必须设置, 否则提交到集群后, Job会找不到这个WordCountJob类的
+            job.setJarByClass(WordCountJobSmallFile.class);// 必须设置, 否则提交到集群后, Job会找不到这个WordCountJob类的
 
             // 输入、输出
             FileInputFormat.setInputPaths(job, new Path(fileInputPath));
             FileOutputFormat.setOutputPath(job, new Path(fileOutputPath));
+
+            // 设置小文件合并优化处理类
+            job.setInputFormatClass(SequenceFileInputFormat.class);
 
             // Map
             job.setMapperClass(MyMapper.class);
@@ -76,7 +80,7 @@ public class WordCountJob {
      * @author yaocs2
      * @since 2022-08-16
      */
-    public static class MyMapper extends Mapper<LongWritable, Text, Text, LongWritable> {
+    public static class MyMapper extends Mapper<Text, Text, Text, LongWritable> {
 
         private static final Logger logger = LoggerFactory.getLogger(MyMapper.class);
 
@@ -90,8 +94,8 @@ public class WordCountJob {
          * @throws InterruptedException
          */
         @Override
-        protected void map(LongWritable k1, Text v1, Context context) throws IOException, InterruptedException {
-            logger.info(String.format("<k1, v1> = <%s, %s>", k1.get(), v1));
+        protected void map(Text k1, Text v1, Context context) throws IOException, InterruptedException {
+            logger.info(String.format("<k1, v1> = <%s, %s>", k1.toString(), v1.toString()));
 
             // 切割字符串
             String[] words = v1.toString().split(" ");
